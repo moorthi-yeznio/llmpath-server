@@ -3,6 +3,7 @@ import {
   uuid,
   varchar,
   text,
+  integer,
   timestamp,
   pgEnum,
   uniqueIndex,
@@ -96,6 +97,40 @@ export const tenantMemberships = pgTable(
     uniqueIndex('tenant_memberships_tenant_user_idx').on(t.tenantId, t.userId),
     index('tenant_memberships_user_id_idx').on(t.userId),
   ],
+);
+
+export const courseStatusEnum = pgEnum('course_status', ['draft', 'published']);
+export const courseLevelEnum = pgEnum('course_level', [
+  'beginner',
+  'intermediate',
+  'advanced',
+]);
+
+export const courses = pgTable(
+  'courses',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    title: varchar('title', { length: 200 }).notNull(),
+    description: text('description'),
+    status: courseStatusEnum('status').notNull().default('draft'),
+    thumbnailUrl: text('thumbnail_url'),
+    durationMinutes: integer('duration_minutes'),
+    level: courseLevelEnum('level'),
+    maxStudents: integer('max_students'),
+    createdBy: uuid('created_by').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index('courses_tenant_id_idx').on(t.tenantId)],
 );
 
 /**

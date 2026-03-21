@@ -15,6 +15,7 @@ import { DrizzleModule } from './db/drizzle.module.js';
 import { TenantsModule } from './tenants/tenants.module.js';
 import { SupabaseModule } from './supabase/supabase.module.js';
 import { AuditModule } from './audit/audit.module.js';
+import { CoursesModule } from './courses/courses.module.js';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { AuditModule } from './audit/audit.module.js';
     AuditModule,
     AuthModule,
     TenantsModule,
+    CoursesModule,
     LoggerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
