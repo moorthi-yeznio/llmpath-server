@@ -1,1 +1,1 @@
-export { validateEnv, type AppConfig, type Env } from './env.schema';
+export { validateEnv, type AppConfig, type Env } from './env.schema.js';

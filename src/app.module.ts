@@ -3,18 +3,32 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
-import { validateEnv } from './config';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { HealthController } from './health.controller';
-import { LandingController } from './landing.controller';
+import { join } from 'node:path';
+import { validateEnv } from './config/index.js';
+import { AuthGuard } from './auth/guards/auth.guard.js';
+import { AuthModule } from './auth/auth.module.js';
+import { AppController } from './app.controller.js';
+import { AppService } from './app.service.js';
+import { HealthController } from './health.controller.js';
+import { LandingController } from './landing.controller.js';
+import { DrizzleModule } from './db/drizzle.module.js';
+import { TenantsModule } from './tenants/tenants.module.js';
+import { SupabaseModule } from './supabase/supabase.module.js';
+import { AuditModule } from './audit/audit.module.js';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      // Load from project root so keys are available even if cwd quirks differ.
+      envFilePath: [join(process.cwd(), '.env')],
       validate: validateEnv,
     }),
+    DrizzleModule,
+    SupabaseModule,
+    AuditModule,
+    AuthModule,
+    TenantsModule,
     LoggerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -54,6 +68,10 @@ import { LandingController } from './landing.controller';
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: AuthGuard,
     },
   ],
 })

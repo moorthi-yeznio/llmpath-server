@@ -25,6 +25,12 @@ const envSchema = z.object({
         .map((s) => s.trim())
         .filter(Boolean),
     ),
+  /** Supabase Postgres or any Postgres (Settings → Database → URI) */
+  DATABASE_URL: z.string().min(1),
+  /** Supabase project URL (Settings → API → Project URL) */
+  SUPABASE_URL: z.string().min(1),
+  /** Supabase service role key (Settings → API → Secret key) — keep secret, server-only */
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -34,6 +40,9 @@ export type AppConfig = {
   port: number;
   logLevel: (typeof logLevels)[number];
   corsOrigins: string[];
+  databaseUrl: string;
+  supabaseUrl: string;
+  supabaseServiceRoleKey: string;
 };
 
 export function validateEnv(config: Record<string, unknown>): AppConfig {
@@ -43,5 +52,8 @@ export function validateEnv(config: Record<string, unknown>): AppConfig {
     port: parsed.PORT,
     logLevel: parsed.LOG_LEVEL,
     corsOrigins: parsed.CORS_ORIGINS,
+    databaseUrl: parsed.DATABASE_URL,
+    supabaseUrl: parsed.SUPABASE_URL,
+    supabaseServiceRoleKey: parsed.SUPABASE_SERVICE_ROLE_KEY,
   };
 }

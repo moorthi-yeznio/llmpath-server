@@ -4,6 +4,7 @@ import {
   ValidationPipe,
   type INestApplication,
 } from '@nestjs/common';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter.js';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
@@ -43,6 +44,8 @@ export function configureApp(app: INestApplication): void {
     ],
   });
 
+  app.useGlobalFilters(new HttpExceptionFilter());
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -53,8 +56,11 @@ export function configureApp(app: INestApplication): void {
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('llmpath-server')
-    .setDescription('Learning portal API')
+    .setDescription(
+      'Learning portal API. Authentication is handled by Supabase Auth on the client. Pass the Supabase access_token as a Bearer token. All routes require authentication unless marked public.',
+    )
     .setVersion('1.0')
+    .addBearerAuth()
     .build();
   // Under pnpm, @nestjs/swagger can resolve typings against a different @nestjs/common instance than the app;
   // at runtime there is still a single Nest app. Align types for SwaggerModule only.

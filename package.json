@@ -19,6 +19,7 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
+    "seed:platform-admin": "tsx --env-file=.env scripts/seed-platform-admin.ts",
     "prepare": "husky"
   },
   "dependencies": {
@@ -28,10 +29,14 @@
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/swagger": "^11.2.6",
     "@nestjs/throttler": "^6.5.0",
+    "@supabase/supabase-js": "^2.99.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
+    "drizzle-orm": "^0.45.1",
     "helmet": "^8.1.0",
+    "jose": "^6.2.2",
     "nestjs-pino": "^4.6.1",
+    "pg": "^8.20.0",
     "pino": "^10.3.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
@@ -48,7 +53,9 @@
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.10.7",
+    "@types/pg": "^8.20.0",
     "@types/supertest": "^6.0.2",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",
@@ -64,10 +71,14 @@
     "ts-loader": "^9.5.2",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0"
   },
   "jest": {
+    "setupFiles": [
+      "<rootDir>/../test/setup-env.ts"
+    ],
     "moduleFileExtensions": [
       "js",
       "json",
@@ -78,6 +89,7 @@
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
+    "resolver": "<rootDir>/../jest-resolver.cjs",
     "collectCoverageFrom": [
       "**/*.(t|j)s"
     ],
