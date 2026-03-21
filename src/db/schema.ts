@@ -4,6 +4,8 @@ import {
   varchar,
   text,
   integer,
+  numeric,
+  date,
   timestamp,
   pgEnum,
   uniqueIndex,
@@ -131,6 +133,89 @@ export const courses = pgTable(
       .defaultNow(),
   },
   (t) => [index('courses_tenant_id_idx').on(t.tenantId)],
+);
+
+// ─── Tutor profiles ───────────────────────────────────────────────────────────
+
+export const tutorAvailabilityEnum = pgEnum('tutor_availability', [
+  'available',
+  'on_leave',
+  'retired',
+]);
+
+export const tutorProfiles = pgTable(
+  'tutor_profiles',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    bio: text('bio'),
+    specializations: text('specializations').array(),
+    experienceYears: integer('experience_years'),
+    qualifications: text('qualifications'),
+    availabilityStatus: tutorAvailabilityEnum('availability_status')
+      .notNull()
+      .default('available'),
+    hourlyRate: numeric('hourly_rate', { precision: 10, scale: 2 }),
+    maxStudents: integer('max_students'),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('tutor_profiles_pk').on(t.userId, t.tenantId),
+    index('tutor_profiles_tenant_id_idx').on(t.tenantId),
+  ],
+);
+
+export const tutorCertifications = pgTable(
+  'tutor_certifications',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    name: varchar('name', { length: 200 }).notNull(),
+    issuer: varchar('issuer', { length: 200 }),
+    issuedAt: date('issued_at'),
+    expiresAt: date('expires_at'),
+    credentialUrl: text('credential_url'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index('tutor_certs_user_tenant_idx').on(t.userId, t.tenantId)],
+);
+
+export const tutorSocialLinks = pgTable(
+  'tutor_social_links',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    platform: varchar('platform', { length: 50 }).notNull(),
+    url: text('url').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('tutor_social_links_user_tenant_platform_idx').on(
+      t.userId,
+      t.tenantId,
+      t.platform,
+    ),
+  ],
 );
 
 /**
