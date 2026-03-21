@@ -17,6 +17,7 @@ import { SupabaseModule } from './supabase/supabase.module.js';
 import { AuditModule } from './audit/audit.module.js';
 import { CoursesModule } from './courses/courses.module.js';
 import { TutorsModule } from './tutors/tutors.module.js';
+import { StudentsModule } from './students/students.module.js';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { TutorsModule } from './tutors/tutors.module.js';
     TenantsModule,
     CoursesModule,
     TutorsModule,
+    StudentsModule,
     LoggerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

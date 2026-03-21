@@ -218,6 +218,60 @@ export const tutorSocialLinks = pgTable(
   ],
 );
 
+// ─── Student profiles ─────────────────────────────────────────────────────────
+
+export const studentEducationLevelEnum = pgEnum('student_education_level', [
+  'high_school',
+  'undergraduate',
+  'postgraduate',
+  'professional',
+  'other',
+]);
+
+export const studentProfiles = pgTable(
+  'student_profiles',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    bio: text('bio'),
+    learningGoals: text('learning_goals'),
+    educationLevel: studentEducationLevelEnum('education_level'),
+    occupation: varchar('occupation', { length: 200 }),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('student_profiles_pk').on(t.userId, t.tenantId),
+    index('student_profiles_tenant_id_idx').on(t.tenantId),
+  ],
+);
+
+export const studentEmergencyContacts = pgTable(
+  'student_emergency_contacts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    contactName: varchar('contact_name', { length: 200 }).notNull(),
+    relationship: varchar('relationship', { length: 100 }),
+    phone: varchar('phone', { length: 50 }).notNull(),
+    email: varchar('email', { length: 255 }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index('student_contacts_user_tenant_idx').on(t.userId, t.tenantId)],
+);
+
 /**
  * Immutable audit log. Written fire-and-forget by AuditService.
  * actorUserId has no FK — actor may be a system process.

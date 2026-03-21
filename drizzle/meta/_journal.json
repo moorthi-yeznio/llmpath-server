@@ -29,6 +29,13 @@
       "when": 1742651400000,
       "tag": "0003_add_tutors",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1742737800000,
+      "tag": "0004_add_students",
+      "breakpoints": true
     }
   ]
 }
