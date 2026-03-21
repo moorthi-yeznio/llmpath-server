@@ -1,6 +1,6 @@
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
 import { eq, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DRIZZLE } from '../db/drizzle.constants.js';
@@ -9,11 +9,9 @@ import type { AppConfig } from '../config/index.js';
 import type { AppUser, TenantMembershipRole } from './types/app-user.js';
 
 /** Subset of claims present in a Supabase-issued JWT */
-type SupabaseJwtPayload = {
-  sub: string;
+type SupabaseJwtPayload = JWTPayload & {
   email: string;
   role: string;
-  aud: string | string[];
 };
 
 @Injectable()
@@ -39,11 +37,8 @@ export class AuthService {
   async validateAccessToken(accessToken: string): Promise<AppUser> {
     let payload: SupabaseJwtPayload;
     try {
-      const result = await jwtVerify<SupabaseJwtPayload>(
-        accessToken,
-        this.jwks,
-      );
-      payload = result.payload;
+      const result = await jwtVerify(accessToken, this.jwks);
+      payload = result.payload as SupabaseJwtPayload;
     } catch {
       throw new UnauthorizedException('Invalid or expired token');
     }
