@@ -34,7 +34,7 @@
     "class-validator": "^0.15.1",
     "drizzle-orm": "^0.45.1",
     "helmet": "^8.1.0",
-    "jose": "^6.2.2",
+    "jose": "^4.15.9",
     "nestjs-pino": "^4.6.1",
     "pg": "^8.20.0",
     "pino": "^10.3.1",
