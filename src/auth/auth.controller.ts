@@ -1,19 +1,53 @@
-import { Body, Controller, Get, Patch, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Patch,
+  Post,
+  Query,
+  Req,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { MeResponseDto, UpdateProfileDto } from './dto/index.js';
+import { AcceptInviteDto } from './dto/accept-invite.dto.js';
 import type { AppUser } from './types/app-user.js';
 import { AuthService } from './auth.service.js';
+import { Public } from '../common/decorators/public.decorator.js';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Get('invite')
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @ApiQuery({ name: 'token', required: true })
+  @ApiOperation({ summary: 'Preview invite details (no auth required)' })
+  getInvitePreview(@Query('token') token: string) {
+    return this.authService.getInvitePreview(token);
+  }
+
+  @Post('accept-invite')
+  @Public()
+  @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @ApiOperation({
+    summary:
+      'Accept an invite and create/join the organisation (no auth required)',
+  })
+  acceptInvite(@Body() dto: AcceptInviteDto) {
+    return this.authService.acceptInvite(dto);
+  }
 
   @Get('me')
   @ApiBearerAuth()

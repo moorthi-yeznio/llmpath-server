@@ -422,6 +422,39 @@ export const organisationRolePermissions = pgTable(
 /** @deprecated Use organisationRolePermissions */
 export const tenantRolePermissions = organisationRolePermissions;
 
+// ─── Pending invitations ──────────────────────────────────────────────────────
+
+/**
+ * Tracks email invitations sent to new users.
+ * Token is a 32-byte crypto-random hex string (64 chars).
+ * Invitation is valid until expires_at, and only once (accepted_at becomes non-null on use).
+ */
+export const pendingInvitations = pgTable(
+  'pending_invitations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    token: text('token').notNull().unique(),
+    email: varchar('email', { length: 320 }).notNull(),
+    organisationId: uuid('organisation_id')
+      .notNull()
+      .references(() => organisations.id, { onDelete: 'cascade' }),
+    role: varchar('role', { length: 64 }).notNull(),
+    invitedBy: uuid('invited_by')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    invitedAt: timestamp('invited_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    acceptedAt: timestamp('accepted_at', { withTimezone: true }),
+    cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
+  },
+  (t) => [
+    index('pending_invitations_token_idx').on(t.token),
+    index('pending_invitations_email_org_idx').on(t.email, t.organisationId),
+  ],
+);
+
 /**
  * Immutable audit log. Written fire-and-forget by AuditService.
  * actorUserId has no FK — actor may be a system process.

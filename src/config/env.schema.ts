@@ -31,6 +31,12 @@ const envSchema = z.object({
   SUPABASE_URL: z.string().min(1),
   /** Supabase service role key (Settings → API → Secret key) — keep secret, server-only */
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+  /** Resend email service API key */
+  RESEND_API_KEY: z.string().min(1),
+  /** From address used for invite emails */
+  RESEND_FROM: z.string().default('invites@llmpath.com'),
+  /** Public URL of the web app, used to build invite links */
+  APP_URL: z.string().default('http://localhost:3001'),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -43,6 +49,9 @@ export type AppConfig = {
   databaseUrl: string;
   supabaseUrl: string;
   supabaseServiceRoleKey: string;
+  resendApiKey: string;
+  resendFrom: string;
+  appUrl: string;
 };
 
 export function validateEnv(config: Record<string, unknown>): AppConfig {
@@ -55,5 +64,8 @@ export function validateEnv(config: Record<string, unknown>): AppConfig {
     databaseUrl: parsed.DATABASE_URL,
     supabaseUrl: parsed.SUPABASE_URL,
     supabaseServiceRoleKey: parsed.SUPABASE_SERVICE_ROLE_KEY,
+    resendApiKey: parsed.RESEND_API_KEY,
+    resendFrom: parsed.RESEND_FROM,
+    appUrl: parsed.APP_URL,
   };
 }

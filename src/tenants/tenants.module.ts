@@ -8,9 +8,10 @@ import {
 } from './tenant-controllers.js';
 import { TenantsService } from './tenants.service.js';
 import { PermissionsModule } from '../permissions/permissions.module.js';
+import { MailModule } from '../mail/mail.module.js';
 
 @Module({
-  imports: [PermissionsModule],
+  imports: [PermissionsModule, MailModule],
   controllers: [
     PlatformTenantsController,
     PlatformTenantAdminsController,

@@ -41,11 +41,17 @@ export class TenantUsersController {
     return this.tenants.listTenantUsers(organisationId);
   }
 
+  @Get('invitations')
+  @ApiOperation({ summary: 'List pending invitations for this organisation' })
+  listInvitations(@TenantId() organisationId: string) {
+    return this.tenants.listTenantInvitations(organisationId);
+  }
+
   @Post()
   @HttpCode(201)
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @ApiOperation({
-    summary: 'Add tenant member (tenant admin or platform admin)',
+    summary: 'Invite a new member by email (tenant admin or platform admin)',
   })
   @ApiResponse({ status: 201 })
   create(
@@ -56,14 +62,36 @@ export class TenantUsersController {
     const actorRole = req.user.memberships.find(
       (m) => m.organisationId === organisationId,
     )?.role;
-    return this.tenants.createTenantMember(
+    return this.tenants.inviteTenantMember(
       organisationId,
       body.email,
-      body.password,
       body.role,
       req.user.id,
       actorRole,
     );
+  }
+
+  @Post('invitations/:id/resend')
+  @HttpCode(201)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @ApiOperation({
+    summary: 'Resend an invite email (cancels old token, issues new one)',
+  })
+  resend(
+    @Param('id', ParseUUIDPipe) invitationId: string,
+    @Req() req: Request & { user: AppUser },
+  ) {
+    return this.tenants.resendInvite(invitationId, req.user.id);
+  }
+
+  @Delete('invitations/:id')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Cancel a pending invite' })
+  cancelInvite(
+    @Param('id', ParseUUIDPipe) invitationId: string,
+    @Req() req: Request & { user: AppUser },
+  ) {
+    return this.tenants.cancelInvite(invitationId, req.user.id);
   }
 
   @Patch(':userId')
