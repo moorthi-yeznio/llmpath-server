@@ -42,13 +42,4 @@ export class CreateCourseDto {
   @IsOptional()
   @IsEnum(['beginner', 'intermediate', 'advanced'])
   level?: 'beginner' | 'intermediate' | 'advanced';
-
-  @ApiPropertyOptional({
-    description: 'Maximum number of students',
-    minimum: 1,
-  })
-  @IsOptional()
-  @IsInt()
-  @IsPositive()
-  max_students?: number;
 }

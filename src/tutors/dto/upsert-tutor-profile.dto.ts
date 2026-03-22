@@ -3,12 +3,9 @@ import {
   IsArray,
   IsEnum,
   IsInt,
-  IsNumber,
   IsOptional,
   IsPositive,
   IsString,
-  Max,
-  Min,
 } from 'class-validator';
 
 export class UpsertTutorProfileDto {
@@ -38,17 +35,4 @@ export class UpsertTutorProfileDto {
   @IsOptional()
   @IsEnum(['available', 'on_leave', 'retired'])
   availability_status?: 'available' | 'on_leave' | 'retired';
-
-  @ApiPropertyOptional({ description: 'Hourly rate in USD', minimum: 5 })
-  @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(5)
-  hourly_rate?: number;
-
-  @ApiPropertyOptional({ description: 'Max students per session', minimum: 1 })
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Max(1000)
-  max_students?: number;
 }

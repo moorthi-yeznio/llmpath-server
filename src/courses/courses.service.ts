@@ -26,7 +26,6 @@ export class CoursesService {
         thumbnail_url: schema.courses.thumbnailUrl,
         duration_minutes: schema.courses.durationMinutes,
         level: schema.courses.level,
-        max_students: schema.courses.maxStudents,
         created_by: schema.courses.createdBy,
         created_at: schema.courses.createdAt,
         updated_at: schema.courses.updatedAt,
@@ -48,7 +47,6 @@ export class CoursesService {
         thumbnail_url: schema.courses.thumbnailUrl,
         duration_minutes: schema.courses.durationMinutes,
         level: schema.courses.level,
-        max_students: schema.courses.maxStudents,
         created_by: schema.courses.createdBy,
         created_at: schema.courses.createdAt,
         updated_at: schema.courses.updatedAt,
@@ -80,7 +78,6 @@ export class CoursesService {
         thumbnailUrl: dto.thumbnail_url ?? null,
         durationMinutes: dto.duration_minutes ?? null,
         level: dto.level ?? null,
-        maxStudents: dto.max_students ?? null,
         createdBy: actorUserId,
       })
       .returning({
@@ -92,7 +89,6 @@ export class CoursesService {
         thumbnail_url: schema.courses.thumbnailUrl,
         duration_minutes: schema.courses.durationMinutes,
         level: schema.courses.level,
-        max_students: schema.courses.maxStudents,
         created_by: schema.courses.createdBy,
         created_at: schema.courses.createdAt,
         updated_at: schema.courses.updatedAt,
@@ -131,9 +127,6 @@ export class CoursesService {
           durationMinutes: dto.duration_minutes,
         }),
         ...(dto.level !== undefined && { level: dto.level }),
-        ...(dto.max_students !== undefined && {
-          maxStudents: dto.max_students,
-        }),
         updatedAt: new Date(),
       })
       .where(
@@ -151,7 +144,6 @@ export class CoursesService {
         thumbnail_url: schema.courses.thumbnailUrl,
         duration_minutes: schema.courses.durationMinutes,
         level: schema.courses.level,
-        max_students: schema.courses.maxStudents,
         created_by: schema.courses.createdBy,
         created_at: schema.courses.createdAt,
         updated_at: schema.courses.updatedAt,

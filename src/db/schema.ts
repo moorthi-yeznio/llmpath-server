@@ -4,7 +4,6 @@ import {
   varchar,
   text,
   integer,
-  numeric,
   date,
   timestamp,
   pgEnum,
@@ -121,7 +120,6 @@ export const courses = pgTable(
     thumbnailUrl: text('thumbnail_url'),
     durationMinutes: integer('duration_minutes'),
     level: courseLevelEnum('level'),
-    maxStudents: integer('max_students'),
     createdBy: uuid('created_by').references(() => users.id, {
       onDelete: 'set null',
     }),
@@ -159,8 +157,6 @@ export const tutorProfiles = pgTable(
     availabilityStatus: tutorAvailabilityEnum('availability_status')
       .notNull()
       .default('available'),
-    hourlyRate: numeric('hourly_rate', { precision: 10, scale: 2 }),
-    maxStudents: integer('max_students'),
     updatedAt: timestamp('updated_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -270,6 +266,81 @@ export const studentEmergencyContacts = pgTable(
       .defaultNow(),
   },
   (t) => [index('student_contacts_user_tenant_idx').on(t.userId, t.tenantId)],
+);
+
+// ─── Batches ──────────────────────────────────────────────────────────────────
+
+export const batchStatusEnum = pgEnum('batch_status', [
+  'draft',
+  'active',
+  'completed',
+  'cancelled',
+]);
+
+export const batches = pgTable(
+  'batches',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    courseId: uuid('course_id')
+      .notNull()
+      .references(() => courses.id, { onDelete: 'cascade' }),
+    tutorId: uuid('tutor_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    name: varchar('name', { length: 200 }).notNull(),
+    status: batchStatusEnum('status').notNull().default('draft'),
+    startDate: date('start_date'),
+    endDate: date('end_date'),
+    maxStudents: integer('max_students'),
+    joinCode: varchar('join_code', { length: 20 }).notNull().unique(),
+    createdBy: uuid('created_by').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index('batches_tenant_id_idx').on(t.tenantId),
+    index('batches_course_id_idx').on(t.courseId),
+    uniqueIndex('batches_join_code_idx').on(t.joinCode),
+  ],
+);
+
+export const batchEnrollments = pgTable(
+  'batch_enrollments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    batchId: uuid('batch_id')
+      .notNull()
+      .references(() => batches.id, { onDelete: 'cascade' }),
+    studentId: uuid('student_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    enrolledBy: uuid('enrolled_by').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    enrolledAt: timestamp('enrolled_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('batch_enrollments_batch_student_idx').on(
+      t.batchId,
+      t.studentId,
+    ),
+    index('batch_enrollments_batch_id_idx').on(t.batchId),
+    index('batch_enrollments_student_id_idx').on(t.studentId),
+  ],
 );
 
 /**

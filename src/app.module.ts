@@ -18,6 +18,7 @@ import { AuditModule } from './audit/audit.module.js';
 import { CoursesModule } from './courses/courses.module.js';
 import { TutorsModule } from './tutors/tutors.module.js';
 import { StudentsModule } from './students/students.module.js';
+import { BatchesModule } from './batches/batches.module.js';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { StudentsModule } from './students/students.module.js';
     CoursesModule,
     TutorsModule,
     StudentsModule,
+    BatchesModule,
     LoggerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

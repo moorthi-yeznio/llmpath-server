@@ -18,8 +18,6 @@ const PROFILE_SHAPE = {
   experience_years: schema.tutorProfiles.experienceYears,
   qualifications: schema.tutorProfiles.qualifications,
   availability_status: schema.tutorProfiles.availabilityStatus,
-  hourly_rate: schema.tutorProfiles.hourlyRate,
-  max_students: schema.tutorProfiles.maxStudents,
   updated_at: schema.tutorProfiles.updatedAt,
 };
 
@@ -119,8 +117,6 @@ export class TutorsService {
         experienceYears: dto.experience_years ?? null,
         qualifications: dto.qualifications ?? null,
         availabilityStatus: dto.availability_status ?? 'available',
-        hourlyRate: dto.hourly_rate != null ? String(dto.hourly_rate) : null,
-        maxStudents: dto.max_students ?? null,
       })
       .onConflictDoUpdate({
         target: [schema.tutorProfiles.userId, schema.tutorProfiles.tenantId],
@@ -137,12 +133,6 @@ export class TutorsService {
           }),
           ...(dto.availability_status !== undefined && {
             availabilityStatus: dto.availability_status,
-          }),
-          ...(dto.hourly_rate !== undefined && {
-            hourlyRate: String(dto.hourly_rate),
-          }),
-          ...(dto.max_students !== undefined && {
-            maxStudents: dto.max_students,
           }),
           updatedAt: new Date(),
         },
