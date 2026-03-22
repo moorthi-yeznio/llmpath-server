@@ -1,15 +1,18 @@
 import {
+  BadRequestException,
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DRIZZLE } from '../db/drizzle.constants.js';
 import * as schema from '../db/schema.js';
 import { SupabaseService } from '../supabase/supabase.service.js';
 import { AuditService } from '../audit/audit.service.js';
+import { PermissionsService } from '../permissions/permissions.service.js';
 import type { TenantMembershipRole } from '../auth/types/app-user.js';
 
 function isPgUniqueViolation(err: unknown): boolean {
@@ -28,6 +31,7 @@ export class TenantsService {
     private readonly db: NodePgDatabase<typeof schema>,
     private readonly supabase: SupabaseService,
     private readonly audit: AuditService,
+    private readonly permissionsService: PermissionsService,
   ) {}
 
   async listTenants() {
@@ -39,8 +43,9 @@ export class TenantsService {
         created_at: schema.tenants.createdAt,
       })
       .from(schema.tenants)
+      .where(isNull(schema.tenants.deletedAt))
       .orderBy(schema.tenants.createdAt);
-    return { tenants: rows };
+    return { organisations: rows };
   }
 
   async createTenant(name: string, slug: string, actorUserId: string) {
@@ -61,6 +66,8 @@ export class TenantsService {
         action: 'CREATE',
         after: { name: row.name, slug: row.slug },
       });
+      // Seed default role permissions for this tenant (fire-and-forget, non-blocking)
+      void this.permissionsService.seedForTenant(row.id).catch(() => undefined);
       return { tenant: row };
     } catch (e: unknown) {
       if (isPgUniqueViolation(e)) {
@@ -107,8 +114,11 @@ export class TenantsService {
 
   async deleteTenant(tenantId: string, actorUserId: string) {
     const deleted = await this.db
-      .delete(schema.tenants)
-      .where(eq(schema.tenants.id, tenantId))
+      .update(schema.tenants)
+      .set({ deletedAt: new Date() })
+      .where(
+        and(eq(schema.tenants.id, tenantId), isNull(schema.tenants.deletedAt)),
+      )
       .returning({ id: schema.tenants.id });
     if (!deleted.length) {
       throw new NotFoundException('Tenant not found');
@@ -154,7 +164,7 @@ export class TenantsService {
         .from(schema.tenantMemberships)
         .where(
           and(
-            eq(schema.tenantMemberships.tenantId, tenantId),
+            eq(schema.tenantMemberships.organisationId, tenantId),
             eq(schema.tenantMemberships.userId, userId),
           ),
         )
@@ -172,7 +182,7 @@ export class TenantsService {
           .where(eq(schema.tenantMemberships.id, existing.id));
       } else {
         await tx.insert(schema.tenantMemberships).values({
-          tenantId,
+          organisationId: tenantId,
           userId,
           role: 'tenant_admin',
         });
@@ -197,12 +207,14 @@ export class TenantsService {
     actorUserId: string,
   ) {
     const deleted = await this.db
-      .delete(schema.tenantMemberships)
+      .update(schema.tenantMemberships)
+      .set({ deletedAt: new Date() })
       .where(
         and(
-          eq(schema.tenantMemberships.tenantId, tenantId),
+          eq(schema.tenantMemberships.organisationId, tenantId),
           eq(schema.tenantMemberships.userId, userId),
           eq(schema.tenantMemberships.role, 'tenant_admin'),
+          isNull(schema.tenantMemberships.deletedAt),
         ),
       )
       .returning({ id: schema.tenantMemberships.id });
@@ -235,7 +247,12 @@ export class TenantsService {
         schema.users,
         eq(schema.tenantMemberships.userId, schema.users.id),
       )
-      .where(eq(schema.tenantMemberships.tenantId, tenantId));
+      .where(
+        and(
+          eq(schema.tenantMemberships.organisationId, tenantId),
+          isNull(schema.tenantMemberships.deletedAt),
+        ),
+      );
     return { users: rows };
   }
 
@@ -249,8 +266,44 @@ export class TenantsService {
     password: string,
     role: TenantMembershipRole,
     actorUserId: string,
+    actorRole?: TenantMembershipRole,
   ) {
     await this.assertTenantExists(tenantId);
+
+    // Validate role key exists in the roles catalogue
+    const [knownRole] = await this.db
+      .select({ key: schema.roles.key })
+      .from(schema.roles)
+      .where(eq(schema.roles.key, role))
+      .limit(1);
+    if (!knownRole) {
+      throw new BadRequestException(`Unknown role '${role}'`);
+    }
+
+    // Enforce invite hierarchy using the permission policy
+    if (actorRole) {
+      // Map target role to the permission resource used for "invite"
+      const resourceMap: Partial<Record<TenantMembershipRole, string>> = {
+        tutor: 'tutors',
+        student: 'students',
+        finance_admin: 'users',
+        tenant_admin: 'users',
+      };
+      const resource = resourceMap[role];
+      if (resource) {
+        const canInvite = await this.permissionsService.hasPermission(
+          tenantId,
+          actorRole,
+          resource,
+          'invite',
+        );
+        if (!canInvite) {
+          throw new ForbiddenException(
+            `Your role does not have permission to invite ${role}`,
+          );
+        }
+      }
+    }
 
     let authUser = await this.supabase.getUserByEmail(email);
     if (!authUser) {
@@ -269,7 +322,7 @@ export class TenantsService {
         .from(schema.tenantMemberships)
         .where(
           and(
-            eq(schema.tenantMemberships.tenantId, tenantId),
+            eq(schema.tenantMemberships.organisationId, tenantId),
             eq(schema.tenantMemberships.userId, userId),
           ),
         )
@@ -280,7 +333,7 @@ export class TenantsService {
       }
 
       await tx.insert(schema.tenantMemberships).values({
-        tenantId,
+        organisationId: tenantId,
         userId,
         role,
       });
@@ -308,7 +361,7 @@ export class TenantsService {
       .from(schema.tenantMemberships)
       .where(
         and(
-          eq(schema.tenantMemberships.tenantId, tenantId),
+          eq(schema.tenantMemberships.organisationId, tenantId),
           eq(schema.tenantMemberships.userId, userId),
         ),
       )
@@ -319,11 +372,13 @@ export class TenantsService {
     }
 
     await this.db
-      .delete(schema.tenantMemberships)
+      .update(schema.tenantMemberships)
+      .set({ deletedAt: new Date() })
       .where(
         and(
-          eq(schema.tenantMemberships.tenantId, tenantId),
+          eq(schema.tenantMemberships.organisationId, tenantId),
           eq(schema.tenantMemberships.userId, userId),
+          isNull(schema.tenantMemberships.deletedAt),
         ),
       );
 
@@ -352,7 +407,7 @@ export class TenantsService {
       .from(schema.tenantMemberships)
       .where(
         and(
-          eq(schema.tenantMemberships.tenantId, tenantId),
+          eq(schema.tenantMemberships.organisationId, tenantId),
           eq(schema.tenantMemberships.userId, userId),
         ),
       )
@@ -400,7 +455,9 @@ export class TenantsService {
     const [row] = await this.db
       .select({ id: schema.tenants.id })
       .from(schema.tenants)
-      .where(eq(schema.tenants.id, tenantId))
+      .where(
+        and(eq(schema.tenants.id, tenantId), isNull(schema.tenants.deletedAt)),
+      )
       .limit(1);
     if (!row) {
       throw new NotFoundException('Tenant not found');

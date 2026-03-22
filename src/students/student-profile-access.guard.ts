@@ -24,15 +24,15 @@ export class StudentProfileAccessGuard implements CanActivate {
     if (!user) {
       throw new ForbiddenException();
     }
-    const tenantId = req.params['tenantId'];
-    if (!tenantId) {
-      throw new BadRequestException('tenantId is required');
+    const tenantId = req.headers['x-organisation-id'];
+    if (!tenantId || typeof tenantId !== 'string') {
+      throw new BadRequestException('x-organisation-id header is required');
     }
     if (user.isPlatformAdmin) {
       return true;
     }
     const isTenantAdmin = user.memberships.some(
-      (m) => m.tenantId === tenantId && m.role === 'tenant_admin',
+      (m) => m.organisationId === tenantId && m.role === 'tenant_admin',
     );
     if (isTenantAdmin) {
       return true;

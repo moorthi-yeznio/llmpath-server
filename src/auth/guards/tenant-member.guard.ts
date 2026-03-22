@@ -22,14 +22,16 @@ export class TenantMemberGuard implements CanActivate {
     if (!user) {
       throw new ForbiddenException();
     }
-    const tenantId = req.params['tenantId'];
-    if (!tenantId) {
-      throw new BadRequestException('tenantId is required');
+    const tenantId = req.headers['x-organisation-id'];
+    if (!tenantId || typeof tenantId !== 'string') {
+      throw new BadRequestException('x-organisation-id header is required');
     }
     if (user.isPlatformAdmin) {
       return true;
     }
-    const isMember = user.memberships.some((m) => m.tenantId === tenantId);
+    const isMember = user.memberships.some(
+      (m) => m.organisationId === tenantId,
+    );
     if (!isMember) {
       throw new ForbiddenException('Tenant membership required');
     }

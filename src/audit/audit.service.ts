@@ -36,7 +36,7 @@ export class AuditService {
         action: entry.action,
         beforeJson: entry.before ?? null,
         afterJson: entry.after ?? null,
-        tenantId: entry.tenantId ?? null,
+        organisationId: entry.tenantId ?? null,
       })
       .catch((err: unknown) => {
         this.logger.error(

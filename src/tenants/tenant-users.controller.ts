@@ -20,6 +20,7 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { TenantAccessGuard } from '../auth/guards/tenant-access.guard.js';
+import { TenantId } from '../auth/decorators/tenant-id.decorator.js';
 import type { AppUser } from '../auth/types/app-user.js';
 import { CreateTenantMemberDto } from './dto/create-tenant-member.dto.js';
 import { PatchTenantUserDto } from './dto/patch-tenant-user.dto.js';
@@ -27,7 +28,7 @@ import { TenantsService } from './tenants.service.js';
 
 @ApiTags('tenant-users')
 @ApiBearerAuth()
-@Controller('tenants/:tenantId/users')
+@Controller('organisations/users')
 @UseGuards(TenantAccessGuard)
 export class TenantUsersController {
   constructor(private readonly tenants: TenantsService) {}
@@ -36,8 +37,8 @@ export class TenantUsersController {
   @ApiOperation({
     summary: 'List users in tenant (tenant admin or platform admin)',
   })
-  list(@Param('tenantId', ParseUUIDPipe) tenantId: string) {
-    return this.tenants.listTenantUsers(tenantId);
+  list(@TenantId() organisationId: string) {
+    return this.tenants.listTenantUsers(organisationId);
   }
 
   @Post()
@@ -48,16 +49,20 @@ export class TenantUsersController {
   })
   @ApiResponse({ status: 201 })
   create(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() organisationId: string,
     @Body() body: CreateTenantMemberDto,
     @Req() req: Request & { user: AppUser },
   ) {
+    const actorRole = req.user.memberships.find(
+      (m) => m.organisationId === organisationId,
+    )?.role;
     return this.tenants.createTenantMember(
-      tenantId,
+      organisationId,
       body.email,
       body.password,
       body.role,
       req.user.id,
+      actorRole,
     );
   }
 
@@ -68,13 +73,13 @@ export class TenantUsersController {
       'Update tenant user flags e.g. ban (tenant admin or platform admin)',
   })
   patch(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() organisationId: string,
     @Param('userId', ParseUUIDPipe) userId: string,
     @Body() body: PatchTenantUserDto,
     @Req() req: Request & { user: AppUser },
   ) {
     return this.tenants.patchTenantUser(
-      tenantId,
+      organisationId,
       userId,
       { banned: body.banned },
       req.user.id,
@@ -87,10 +92,10 @@ export class TenantUsersController {
     summary: 'Remove user from tenant (tenant admin or platform admin)',
   })
   remove(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() organisationId: string,
     @Param('userId', ParseUUIDPipe) userId: string,
     @Req() req: Request & { user: AppUser },
   ) {
-    return this.tenants.removeTenantMember(tenantId, userId, req.user.id);
+    return this.tenants.removeTenantMember(organisationId, userId, req.user.id);
   }
 }

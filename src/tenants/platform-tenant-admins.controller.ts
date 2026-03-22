@@ -22,9 +22,9 @@ import type { AppUser } from '../auth/types/app-user.js';
 import { AssignTenantAdminDto } from './dto/assign-tenant-admin.dto.js';
 import { TenantsService } from './tenants.service.js';
 
-@ApiTags('tenants')
+@ApiTags('organisations')
 @ApiBearerAuth()
-@Controller('tenants')
+@Controller('organisations')
 @UseGuards(PlatformAdminGuard)
 export class PlatformTenantAdminsController {
   constructor(private readonly tenants: TenantsService) {}

@@ -25,9 +25,9 @@ import { CreateTenantDto } from './dto/create-tenant.dto.js';
 import { UpdateTenantDto } from './dto/update-tenant.dto.js';
 import { TenantsService } from './tenants.service.js';
 
-@ApiTags('tenants')
+@ApiTags('organisations')
 @ApiBearerAuth()
-@Controller('tenants')
+@Controller('organisations')
 @UseGuards(PlatformAdminGuard)
 export class PlatformTenantsController {
   constructor(private readonly tenants: TenantsService) {}

@@ -19,6 +19,9 @@ import { CoursesModule } from './courses/courses.module.js';
 import { TutorsModule } from './tutors/tutors.module.js';
 import { StudentsModule } from './students/students.module.js';
 import { BatchesModule } from './batches/batches.module.js';
+import { PermissionsModule } from './permissions/permissions.module.js';
+import { PermissionGuard } from './permissions/permission.guard.js';
+import { RegistryModule } from './registry/registry.module.js';
 
 @Module({
   imports: [
@@ -37,6 +40,8 @@ import { BatchesModule } from './batches/batches.module.js';
     TutorsModule,
     StudentsModule,
     BatchesModule,
+    PermissionsModule,
+    RegistryModule,
     LoggerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -80,6 +85,10 @@ import { BatchesModule } from './batches/batches.module.js';
     {
       provide: APP_GUARD,
       useClass: AuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: PermissionGuard,
     },
   ],
 })

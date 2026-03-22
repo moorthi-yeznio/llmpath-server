@@ -12,7 +12,7 @@ import type { CreateTutorSocialLinkDto } from './dto/create-tutor-social-link.dt
 
 const PROFILE_SHAPE = {
   user_id: schema.tutorProfiles.userId,
-  tenant_id: schema.tutorProfiles.tenantId,
+  tenant_id: schema.tutorProfiles.organisationId,
   bio: schema.tutorProfiles.bio,
   specializations: schema.tutorProfiles.specializations,
   experience_years: schema.tutorProfiles.experienceYears,
@@ -24,7 +24,7 @@ const PROFILE_SHAPE = {
 const CERT_SHAPE = {
   id: schema.tutorCertifications.id,
   user_id: schema.tutorCertifications.userId,
-  tenant_id: schema.tutorCertifications.tenantId,
+  tenant_id: schema.tutorCertifications.organisationId,
   name: schema.tutorCertifications.name,
   issuer: schema.tutorCertifications.issuer,
   issued_at: schema.tutorCertifications.issuedAt,
@@ -36,7 +36,7 @@ const CERT_SHAPE = {
 const LINK_SHAPE = {
   id: schema.tutorSocialLinks.id,
   user_id: schema.tutorSocialLinks.userId,
-  tenant_id: schema.tutorSocialLinks.tenantId,
+  tenant_id: schema.tutorSocialLinks.organisationId,
   platform: schema.tutorSocialLinks.platform,
   url: schema.tutorSocialLinks.url,
   created_at: schema.tutorSocialLinks.createdAt,
@@ -59,7 +59,7 @@ export class TutorsService {
       .where(
         and(
           eq(schema.tutorProfiles.userId, userId),
-          eq(schema.tutorProfiles.tenantId, tenantId),
+          eq(schema.tutorProfiles.organisationId, tenantId),
         ),
       );
 
@@ -70,7 +70,7 @@ export class TutorsService {
         .where(
           and(
             eq(schema.tutorCertifications.userId, userId),
-            eq(schema.tutorCertifications.tenantId, tenantId),
+            eq(schema.tutorCertifications.organisationId, tenantId),
           ),
         ),
       this.db
@@ -79,7 +79,7 @@ export class TutorsService {
         .where(
           and(
             eq(schema.tutorSocialLinks.userId, userId),
-            eq(schema.tutorSocialLinks.tenantId, tenantId),
+            eq(schema.tutorSocialLinks.organisationId, tenantId),
           ),
         ),
     ]);
@@ -103,7 +103,7 @@ export class TutorsService {
       .where(
         and(
           eq(schema.tutorProfiles.userId, userId),
-          eq(schema.tutorProfiles.tenantId, tenantId),
+          eq(schema.tutorProfiles.organisationId, tenantId),
         ),
       );
 
@@ -111,7 +111,7 @@ export class TutorsService {
       .insert(schema.tutorProfiles)
       .values({
         userId,
-        tenantId,
+        organisationId: tenantId,
         bio: dto.bio ?? null,
         specializations: dto.specializations ?? null,
         experienceYears: dto.experience_years ?? null,
@@ -119,7 +119,10 @@ export class TutorsService {
         availabilityStatus: dto.availability_status ?? 'available',
       })
       .onConflictDoUpdate({
-        target: [schema.tutorProfiles.userId, schema.tutorProfiles.tenantId],
+        target: [
+          schema.tutorProfiles.userId,
+          schema.tutorProfiles.organisationId,
+        ],
         set: {
           ...(dto.bio !== undefined && { bio: dto.bio }),
           ...(dto.specializations !== undefined && {
@@ -164,7 +167,7 @@ export class TutorsService {
       .insert(schema.tutorCertifications)
       .values({
         userId,
-        tenantId,
+        organisationId: tenantId,
         name: dto.name,
         issuer: dto.issuer ?? null,
         issuedAt: dto.issued_at ?? null,
@@ -196,7 +199,7 @@ export class TutorsService {
       .where(
         and(
           eq(schema.tutorCertifications.id, certId),
-          eq(schema.tutorCertifications.tenantId, tenantId),
+          eq(schema.tutorCertifications.organisationId, tenantId),
         ),
       );
 
@@ -207,7 +210,7 @@ export class TutorsService {
       .where(
         and(
           eq(schema.tutorCertifications.id, certId),
-          eq(schema.tutorCertifications.tenantId, tenantId),
+          eq(schema.tutorCertifications.organisationId, tenantId),
         ),
       );
 
@@ -231,11 +234,16 @@ export class TutorsService {
   ) {
     const [row] = await this.db
       .insert(schema.tutorSocialLinks)
-      .values({ userId, tenantId, platform: dto.platform, url: dto.url })
+      .values({
+        userId,
+        organisationId: tenantId,
+        platform: dto.platform,
+        url: dto.url,
+      })
       .onConflictDoUpdate({
         target: [
           schema.tutorSocialLinks.userId,
-          schema.tutorSocialLinks.tenantId,
+          schema.tutorSocialLinks.organisationId,
           schema.tutorSocialLinks.platform,
         ],
         set: { url: dto.url },
@@ -265,7 +273,7 @@ export class TutorsService {
       .where(
         and(
           eq(schema.tutorSocialLinks.id, linkId),
-          eq(schema.tutorSocialLinks.tenantId, tenantId),
+          eq(schema.tutorSocialLinks.organisationId, tenantId),
         ),
       );
 
@@ -276,7 +284,7 @@ export class TutorsService {
       .where(
         and(
           eq(schema.tutorSocialLinks.id, linkId),
-          eq(schema.tutorSocialLinks.tenantId, tenantId),
+          eq(schema.tutorSocialLinks.organisationId, tenantId),
         ),
       );
 

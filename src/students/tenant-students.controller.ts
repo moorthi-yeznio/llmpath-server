@@ -21,13 +21,14 @@ import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import type { AppUser } from '../auth/types/app-user.js';
 import { StudentProfileAccessGuard } from './student-profile-access.guard.js';
+import { TenantId } from '../auth/decorators/tenant-id.decorator.js';
 import { UpsertStudentProfileDto } from './dto/upsert-student-profile.dto.js';
 import { CreateStudentContactDto } from './dto/create-student-contact.dto.js';
 import { StudentsService } from './students.service.js';
 
 @ApiTags('students')
 @ApiBearerAuth()
-@Controller('tenants/:tenantId/users/:userId/student')
+@Controller('organisations/users/:userId/student')
 @UseGuards(StudentProfileAccessGuard)
 export class TenantStudentsController {
   constructor(private readonly students: StudentsService) {}
@@ -37,23 +38,23 @@ export class TenantStudentsController {
   @Get()
   @ApiOperation({ summary: 'Get student profile with emergency contacts' })
   getProfile(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() organisationId: string,
     @Param('userId', ParseUUIDPipe) userId: string,
   ) {
-    return this.students.getStudentProfile(tenantId, userId);
+    return this.students.getStudentProfile(organisationId, userId);
   }
 
   @Patch()
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @ApiOperation({ summary: 'Create or update student profile' })
   upsertProfile(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() organisationId: string,
     @Param('userId', ParseUUIDPipe) userId: string,
     @Body() body: UpsertStudentProfileDto,
     @Req() req: Request & { user: AppUser },
   ) {
     return this.students.upsertStudentProfile(
-      tenantId,
+      organisationId,
       userId,
       body,
       req.user.id,
@@ -68,13 +69,13 @@ export class TenantStudentsController {
   @ApiOperation({ summary: 'Add an emergency contact for a student' })
   @ApiResponse({ status: 201 })
   addContact(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() organisationId: string,
     @Param('userId', ParseUUIDPipe) userId: string,
     @Body() body: CreateStudentContactDto,
     @Req() req: Request & { user: AppUser },
   ) {
     return this.students.addEmergencyContact(
-      tenantId,
+      organisationId,
       userId,
       body,
       req.user.id,
@@ -86,12 +87,12 @@ export class TenantStudentsController {
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @ApiOperation({ summary: 'Remove an emergency contact from a student' })
   removeContact(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() organisationId: string,
     @Param('contactId', ParseUUIDPipe) contactId: string,
     @Req() req: Request & { user: AppUser },
   ) {
     return this.students.removeEmergencyContact(
-      tenantId,
+      organisationId,
       contactId,
       req.user.id,
     );

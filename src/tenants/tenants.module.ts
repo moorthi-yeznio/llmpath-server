@@ -7,8 +7,10 @@ import {
   TenantUsersController,
 } from './tenant-controllers.js';
 import { TenantsService } from './tenants.service.js';
+import { PermissionsModule } from '../permissions/permissions.module.js';
 
 @Module({
+  imports: [PermissionsModule],
   controllers: [
     PlatformTenantsController,
     PlatformTenantAdminsController,

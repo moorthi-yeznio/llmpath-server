@@ -11,7 +11,7 @@ import type { CreateStudentContactDto } from './dto/create-student-contact.dto.j
 
 const PROFILE_SHAPE = {
   user_id: schema.studentProfiles.userId,
-  tenant_id: schema.studentProfiles.tenantId,
+  tenant_id: schema.studentProfiles.organisationId,
   bio: schema.studentProfiles.bio,
   learning_goals: schema.studentProfiles.learningGoals,
   education_level: schema.studentProfiles.educationLevel,
@@ -22,7 +22,7 @@ const PROFILE_SHAPE = {
 const CONTACT_SHAPE = {
   id: schema.studentEmergencyContacts.id,
   user_id: schema.studentEmergencyContacts.userId,
-  tenant_id: schema.studentEmergencyContacts.tenantId,
+  tenant_id: schema.studentEmergencyContacts.organisationId,
   contact_name: schema.studentEmergencyContacts.contactName,
   relationship: schema.studentEmergencyContacts.relationship,
   phone: schema.studentEmergencyContacts.phone,
@@ -47,7 +47,7 @@ export class StudentsService {
       .where(
         and(
           eq(schema.studentProfiles.userId, userId),
-          eq(schema.studentProfiles.tenantId, tenantId),
+          eq(schema.studentProfiles.organisationId, tenantId),
         ),
       );
 
@@ -57,7 +57,7 @@ export class StudentsService {
       .where(
         and(
           eq(schema.studentEmergencyContacts.userId, userId),
-          eq(schema.studentEmergencyContacts.tenantId, tenantId),
+          eq(schema.studentEmergencyContacts.organisationId, tenantId),
         ),
       );
 
@@ -79,7 +79,7 @@ export class StudentsService {
       .where(
         and(
           eq(schema.studentProfiles.userId, userId),
-          eq(schema.studentProfiles.tenantId, tenantId),
+          eq(schema.studentProfiles.organisationId, tenantId),
         ),
       );
 
@@ -87,7 +87,7 @@ export class StudentsService {
       .insert(schema.studentProfiles)
       .values({
         userId,
-        tenantId,
+        organisationId: tenantId,
         bio: dto.bio ?? null,
         learningGoals: dto.learning_goals ?? null,
         educationLevel: dto.education_level ?? null,
@@ -96,7 +96,7 @@ export class StudentsService {
       .onConflictDoUpdate({
         target: [
           schema.studentProfiles.userId,
-          schema.studentProfiles.tenantId,
+          schema.studentProfiles.organisationId,
         ],
         set: {
           ...(dto.bio !== undefined && { bio: dto.bio }),
@@ -137,7 +137,7 @@ export class StudentsService {
       .insert(schema.studentEmergencyContacts)
       .values({
         userId,
-        tenantId,
+        organisationId: tenantId,
         contactName: dto.contact_name,
         relationship: dto.relationship ?? null,
         phone: dto.phone,
@@ -168,7 +168,7 @@ export class StudentsService {
       .where(
         and(
           eq(schema.studentEmergencyContacts.id, contactId),
-          eq(schema.studentEmergencyContacts.tenantId, tenantId),
+          eq(schema.studentEmergencyContacts.organisationId, tenantId),
         ),
       );
 
@@ -179,7 +179,7 @@ export class StudentsService {
       .where(
         and(
           eq(schema.studentEmergencyContacts.id, contactId),
-          eq(schema.studentEmergencyContacts.tenantId, tenantId),
+          eq(schema.studentEmergencyContacts.organisationId, tenantId),
         ),
       );
 

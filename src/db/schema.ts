@@ -4,6 +4,7 @@ import {
   varchar,
   text,
   integer,
+  boolean,
   date,
   timestamp,
   pgEnum,
@@ -14,19 +15,49 @@ import {
 
 export const userStatusEnum = pgEnum('user_status', ['active', 'disabled']);
 
+// ─── Roles catalogue (platform-managed, DB-driven) ────────────────────────────
+
 /**
- * tenant_role covers all domain roles within a tenant.
- * - tenant_admin: manages the tenant (users, settings)
- * - tutor: delivers sessions and manages batch content
- * - student: enrolled learner
- * - finance_admin: manages invoices and payments
+ * Global role catalogue. Platform admins create/edit/delete roles here.
+ * System roles (is_system=true) cannot be deleted.
+ * Admin roles (is_admin=true) bypass all permission checks.
  */
-export const tenantRoleEnum = pgEnum('tenant_role', [
-  'tenant_admin',
-  'tutor',
-  'student',
-  'finance_admin',
-]);
+export const roles = pgTable('roles', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  key: varchar('key', { length: 64 }).notNull().unique(),
+  label: varchar('label', { length: 128 }).notNull(),
+  isSystem: boolean('is_system').notNull().default(false),
+  isAdmin: boolean('is_admin').notNull().default(false),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+/**
+ * Global default permission matrix. One row per (role_key, resource_key, action_key).
+ * Used as fallback when an organisation has no custom override for a cell.
+ * Seeded with sensible defaults for system roles; new roles start deny-all.
+ */
+export const rolePermissionDefaults = pgTable(
+  'role_permission_defaults',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    roleKey: varchar('role_key', { length: 64 })
+      .notNull()
+      .references(() => roles.key, {
+        onUpdate: 'cascade',
+        onDelete: 'cascade',
+      }),
+    resourceKey: varchar('resource_key', { length: 64 }).notNull(),
+    actionKey: varchar('action_key', { length: 64 }).notNull(),
+    allowed: boolean('allowed').notNull().default(false),
+  },
+  (t) => [
+    uniqueIndex('rpd_uniq').on(t.roleKey, t.resourceKey, t.actionKey),
+    index('rpd_role_idx').on(t.roleKey),
+  ],
+);
 
 /**
  * Shadow table for Supabase Auth users.
@@ -60,8 +91,8 @@ export const profiles = pgTable('profiles', {
     .defaultNow(),
 });
 
-export const tenants = pgTable(
-  'tenants',
+export const organisations = pgTable(
+  'organisations',
   {
     id: uuid('id').primaryKey().defaultRandom(),
     name: varchar('name', { length: 200 }).notNull(),
@@ -69,9 +100,13 @@ export const tenants = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
-  (t) => [uniqueIndex('tenants_slug_idx').on(t.slug)],
+  (t) => [uniqueIndex('organisations_slug_idx').on(t.slug)],
 );
+
+/** @deprecated Use organisations */
+export const tenants = organisations;
 
 export const platformAdmins = pgTable('platform_admins', {
   userId: uuid('user_id')
@@ -79,26 +114,30 @@ export const platformAdmins = pgTable('platform_admins', {
     .references(() => users.id, { onDelete: 'cascade' }),
 });
 
-export const tenantMemberships = pgTable(
-  'tenant_memberships',
+export const organisationMemberships = pgTable(
+  'organisation_memberships',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    tenantId: uuid('tenant_id')
+    organisationId: uuid('organisation_id')
       .notNull()
-      .references(() => tenants.id, { onDelete: 'cascade' }),
+      .references(() => organisations.id, { onDelete: 'cascade' }),
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    role: tenantRoleEnum('role').notNull(),
+    role: varchar('role', { length: 64 }).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (t) => [
-    uniqueIndex('tenant_memberships_tenant_user_idx').on(t.tenantId, t.userId),
-    index('tenant_memberships_user_id_idx').on(t.userId),
+    uniqueIndex('org_memberships_org_user_idx').on(t.organisationId, t.userId),
+    index('org_memberships_user_id_idx').on(t.userId),
   ],
 );
+
+/** @deprecated Use organisationMemberships */
+export const tenantMemberships = organisationMemberships;
 
 export const courseStatusEnum = pgEnum('course_status', ['draft', 'published']);
 export const courseLevelEnum = pgEnum('course_level', [
@@ -111,9 +150,9 @@ export const courses = pgTable(
   'courses',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    tenantId: uuid('tenant_id')
+    organisationId: uuid('organisation_id')
       .notNull()
-      .references(() => tenants.id, { onDelete: 'cascade' }),
+      .references(() => organisations.id, { onDelete: 'cascade' }),
     title: varchar('title', { length: 200 }).notNull(),
     description: text('description'),
     status: courseStatusEnum('status').notNull().default('draft'),
@@ -129,8 +168,9 @@ export const courses = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
-  (t) => [index('courses_tenant_id_idx').on(t.tenantId)],
+  (t) => [index('courses_org_id_idx').on(t.organisationId)],
 );
 
 // ─── Tutor profiles ───────────────────────────────────────────────────────────
@@ -147,9 +187,9 @@ export const tutorProfiles = pgTable(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    tenantId: uuid('tenant_id')
+    organisationId: uuid('organisation_id')
       .notNull()
-      .references(() => tenants.id, { onDelete: 'cascade' }),
+      .references(() => organisations.id, { onDelete: 'cascade' }),
     bio: text('bio'),
     specializations: text('specializations').array(),
     experienceYears: integer('experience_years'),
@@ -160,10 +200,11 @@ export const tutorProfiles = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (t) => [
-    uniqueIndex('tutor_profiles_pk').on(t.userId, t.tenantId),
-    index('tutor_profiles_tenant_id_idx').on(t.tenantId),
+    uniqueIndex('tutor_profiles_pk').on(t.userId, t.organisationId),
+    index('tutor_profiles_org_id_idx').on(t.organisationId),
   ],
 );
 
@@ -174,9 +215,9 @@ export const tutorCertifications = pgTable(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    tenantId: uuid('tenant_id')
+    organisationId: uuid('organisation_id')
       .notNull()
-      .references(() => tenants.id, { onDelete: 'cascade' }),
+      .references(() => organisations.id, { onDelete: 'cascade' }),
     name: varchar('name', { length: 200 }).notNull(),
     issuer: varchar('issuer', { length: 200 }),
     issuedAt: date('issued_at'),
@@ -185,8 +226,9 @@ export const tutorCertifications = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
-  (t) => [index('tutor_certs_user_tenant_idx').on(t.userId, t.tenantId)],
+  (t) => [index('tutor_certs_user_org_idx').on(t.userId, t.organisationId)],
 );
 
 export const tutorSocialLinks = pgTable(
@@ -196,19 +238,20 @@ export const tutorSocialLinks = pgTable(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    tenantId: uuid('tenant_id')
+    organisationId: uuid('organisation_id')
       .notNull()
-      .references(() => tenants.id, { onDelete: 'cascade' }),
+      .references(() => organisations.id, { onDelete: 'cascade' }),
     platform: varchar('platform', { length: 50 }).notNull(),
     url: text('url').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (t) => [
-    uniqueIndex('tutor_social_links_user_tenant_platform_idx').on(
+    uniqueIndex('tutor_social_links_user_org_platform_idx').on(
       t.userId,
-      t.tenantId,
+      t.organisationId,
       t.platform,
     ),
   ],
@@ -230,9 +273,9 @@ export const studentProfiles = pgTable(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    tenantId: uuid('tenant_id')
+    organisationId: uuid('organisation_id')
       .notNull()
-      .references(() => tenants.id, { onDelete: 'cascade' }),
+      .references(() => organisations.id, { onDelete: 'cascade' }),
     bio: text('bio'),
     learningGoals: text('learning_goals'),
     educationLevel: studentEducationLevelEnum('education_level'),
@@ -240,10 +283,11 @@ export const studentProfiles = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (t) => [
-    uniqueIndex('student_profiles_pk').on(t.userId, t.tenantId),
-    index('student_profiles_tenant_id_idx').on(t.tenantId),
+    uniqueIndex('student_profiles_pk').on(t.userId, t.organisationId),
+    index('student_profiles_org_id_idx').on(t.organisationId),
   ],
 );
 
@@ -254,9 +298,9 @@ export const studentEmergencyContacts = pgTable(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    tenantId: uuid('tenant_id')
+    organisationId: uuid('organisation_id')
       .notNull()
-      .references(() => tenants.id, { onDelete: 'cascade' }),
+      .references(() => organisations.id, { onDelete: 'cascade' }),
     contactName: varchar('contact_name', { length: 200 }).notNull(),
     relationship: varchar('relationship', { length: 100 }),
     phone: varchar('phone', { length: 50 }).notNull(),
@@ -264,8 +308,11 @@ export const studentEmergencyContacts = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
-  (t) => [index('student_contacts_user_tenant_idx').on(t.userId, t.tenantId)],
+  (t) => [
+    index('student_contacts_user_org_idx').on(t.userId, t.organisationId),
+  ],
 );
 
 // ─── Batches ──────────────────────────────────────────────────────────────────
@@ -281,9 +328,9 @@ export const batches = pgTable(
   'batches',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    tenantId: uuid('tenant_id')
+    organisationId: uuid('organisation_id')
       .notNull()
-      .references(() => tenants.id, { onDelete: 'cascade' }),
+      .references(() => organisations.id, { onDelete: 'cascade' }),
     courseId: uuid('course_id')
       .notNull()
       .references(() => courses.id, { onDelete: 'cascade' }),
@@ -305,9 +352,10 @@ export const batches = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (t) => [
-    index('batches_tenant_id_idx').on(t.tenantId),
+    index('batches_org_id_idx').on(t.organisationId),
     index('batches_course_id_idx').on(t.courseId),
     uniqueIndex('batches_join_code_idx').on(t.joinCode),
   ],
@@ -323,15 +371,16 @@ export const batchEnrollments = pgTable(
     studentId: uuid('student_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    tenantId: uuid('tenant_id')
+    organisationId: uuid('organisation_id')
       .notNull()
-      .references(() => tenants.id, { onDelete: 'cascade' }),
+      .references(() => organisations.id, { onDelete: 'cascade' }),
     enrolledBy: uuid('enrolled_by').references(() => users.id, {
       onDelete: 'set null',
     }),
     enrolledAt: timestamp('enrolled_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (t) => [
     uniqueIndex('batch_enrollments_batch_student_idx').on(
@@ -342,6 +391,36 @@ export const batchEnrollments = pgTable(
     index('batch_enrollments_student_id_idx').on(t.studentId),
   ],
 );
+
+// ─── Organisation role permissions ────────────────────────────────────────────
+
+/**
+ * Per-organisation permission policy. Stores one row per (organisation, role, resource, action).
+ * Seeded with defaults on organisation creation. Organisation admins can override any cell.
+ */
+export const organisationRolePermissions = pgTable(
+  'organisation_role_permissions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organisationId: uuid('organisation_id')
+      .notNull()
+      .references(() => organisations.id, { onDelete: 'cascade' }),
+    role: varchar('role', { length: 64 }).notNull(),
+    resource: varchar('resource', { length: 64 }).notNull(),
+    action: varchar('action', { length: 64 }).notNull(),
+    allowed: boolean('allowed').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('orp_uniq').on(t.organisationId, t.role, t.resource, t.action),
+    index('orp_org_idx').on(t.organisationId),
+  ],
+);
+
+/** @deprecated Use organisationRolePermissions */
+export const tenantRolePermissions = organisationRolePermissions;
 
 /**
  * Immutable audit log. Written fire-and-forget by AuditService.
@@ -358,7 +437,7 @@ export const auditLogs = pgTable(
     action: varchar('action', { length: 50 }).notNull(),
     beforeJson: jsonb('before_json'),
     afterJson: jsonb('after_json'),
-    tenantId: uuid('tenant_id').references(() => tenants.id, {
+    organisationId: uuid('organisation_id').references(() => organisations.id, {
       onDelete: 'set null',
     }),
     createdAt: timestamp('created_at', { withTimezone: true })
@@ -368,6 +447,6 @@ export const auditLogs = pgTable(
   (t) => [
     index('audit_logs_actor_idx').on(t.actorUserId),
     index('audit_logs_entity_idx').on(t.entityType, t.entityId),
-    index('audit_logs_tenant_idx').on(t.tenantId),
+    index('audit_logs_org_idx').on(t.organisationId),
   ],
 );

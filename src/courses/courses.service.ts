@@ -19,7 +19,7 @@ export class CoursesService {
     const rows = await this.db
       .select({
         id: schema.courses.id,
-        tenant_id: schema.courses.tenantId,
+        tenant_id: schema.courses.organisationId,
         title: schema.courses.title,
         description: schema.courses.description,
         status: schema.courses.status,
@@ -31,7 +31,7 @@ export class CoursesService {
         updated_at: schema.courses.updatedAt,
       })
       .from(schema.courses)
-      .where(eq(schema.courses.tenantId, tenantId))
+      .where(eq(schema.courses.organisationId, tenantId))
       .orderBy(schema.courses.createdAt);
     return { courses: rows };
   }
@@ -40,7 +40,7 @@ export class CoursesService {
     const [row] = await this.db
       .select({
         id: schema.courses.id,
-        tenant_id: schema.courses.tenantId,
+        tenant_id: schema.courses.organisationId,
         title: schema.courses.title,
         description: schema.courses.description,
         status: schema.courses.status,
@@ -55,7 +55,7 @@ export class CoursesService {
       .where(
         and(
           eq(schema.courses.id, courseId),
-          eq(schema.courses.tenantId, tenantId),
+          eq(schema.courses.organisationId, tenantId),
         ),
       );
 
@@ -71,7 +71,7 @@ export class CoursesService {
     const [row] = await this.db
       .insert(schema.courses)
       .values({
-        tenantId,
+        organisationId: tenantId,
         title: dto.title,
         description: dto.description ?? null,
         status: dto.status ?? 'draft',
@@ -82,7 +82,7 @@ export class CoursesService {
       })
       .returning({
         id: schema.courses.id,
-        tenant_id: schema.courses.tenantId,
+        tenant_id: schema.courses.organisationId,
         title: schema.courses.title,
         description: schema.courses.description,
         status: schema.courses.status,
@@ -132,12 +132,12 @@ export class CoursesService {
       .where(
         and(
           eq(schema.courses.id, courseId),
-          eq(schema.courses.tenantId, tenantId),
+          eq(schema.courses.organisationId, tenantId),
         ),
       )
       .returning({
         id: schema.courses.id,
-        tenant_id: schema.courses.tenantId,
+        tenant_id: schema.courses.organisationId,
         title: schema.courses.title,
         description: schema.courses.description,
         status: schema.courses.status,
@@ -170,7 +170,7 @@ export class CoursesService {
       .where(
         and(
           eq(schema.courses.id, courseId),
-          eq(schema.courses.tenantId, tenantId),
+          eq(schema.courses.organisationId, tenantId),
         ),
       );
 

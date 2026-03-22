@@ -10,7 +10,7 @@ const ROLE_ENUM: TenantMembershipRole[] = [
 
 export class MembershipDto {
   @ApiProperty()
-  tenant_id!: string;
+  organisation_id!: string;
 
   @ApiProperty({ enum: ROLE_ENUM })
   role!: TenantMembershipRole;

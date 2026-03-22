@@ -2,6 +2,7 @@ import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
 import { eq, sql } from 'drizzle-orm';
+import type { UpdateProfileDto } from './dto/index.js';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DRIZZLE } from '../db/drizzle.constants.js';
 import * as schema from '../db/schema.js';
@@ -68,7 +69,7 @@ export class AuthService {
       .select({
         status: schema.users.status,
         isPlatformAdmin: sql<boolean>`${schema.platformAdmins.userId} IS NOT NULL`,
-        tenantId: schema.tenantMemberships.tenantId,
+        tenantId: schema.tenantMemberships.organisationId,
         role: schema.tenantMemberships.role,
         fullName: schema.profiles.fullName,
         locale: schema.profiles.locale,
@@ -100,7 +101,7 @@ export class AuthService {
     const memberships: AppUser['memberships'] = rows
       .filter((r) => r.tenantId !== null)
       .map((r) => ({
-        tenantId: r.tenantId!,
+        organisationId: r.tenantId!,
         role: r.role as TenantMembershipRole,
       }));
 
@@ -124,5 +125,22 @@ export class AuthService {
       memberships,
       profile,
     };
+  }
+
+  async updateProfile(userId: string, dto: UpdateProfileDto): Promise<void> {
+    const patch: Partial<typeof schema.profiles.$inferInsert> = {};
+    if (dto.full_name !== undefined) patch.fullName = dto.full_name;
+    if (dto.timezone !== undefined) patch.timezone = dto.timezone;
+    if (dto.locale !== undefined) patch.locale = dto.locale;
+    if (dto.avatar_url !== undefined) patch.avatarUrl = dto.avatar_url;
+    patch.updatedAt = new Date();
+
+    await this.db
+      .insert(schema.profiles)
+      .values({ userId, ...patch })
+      .onConflictDoUpdate({
+        target: schema.profiles.userId,
+        set: patch,
+      });
   }
 }

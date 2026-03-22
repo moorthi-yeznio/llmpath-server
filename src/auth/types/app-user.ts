@@ -1,8 +1,11 @@
+// Known system roles listed for IDE autocomplete.
+// Roles are now DB-driven — any string is valid at runtime.
 export type TenantMembershipRole =
   | 'tenant_admin'
   | 'tutor'
   | 'student'
-  | 'finance_admin';
+  | 'finance_admin'
+  | (string & {});
 
 export interface SessionProfile {
   full_name: string | null;
@@ -16,7 +19,7 @@ export interface AppUser {
   email: string;
   isPlatformAdmin: boolean;
   memberships: {
-    tenantId: string;
+    organisationId: string;
     role: TenantMembershipRole;
   }[];
   profile: SessionProfile | null;

@@ -20,7 +20,7 @@ import type { JoinBatchDto } from './dto/join-batch.dto.js';
 
 const BATCH_SHAPE = {
   id: schema.batches.id,
-  tenant_id: schema.batches.tenantId,
+  tenant_id: schema.batches.organisationId,
   course_id: schema.batches.courseId,
   tutor_id: schema.batches.tutorId,
   name: schema.batches.name,
@@ -38,7 +38,7 @@ const ENROLLMENT_SHAPE = {
   id: schema.batchEnrollments.id,
   batch_id: schema.batchEnrollments.batchId,
   student_id: schema.batchEnrollments.studentId,
-  tenant_id: schema.batchEnrollments.tenantId,
+  tenant_id: schema.batchEnrollments.organisationId,
   enrolled_by: schema.batchEnrollments.enrolledBy,
   enrolled_at: schema.batchEnrollments.enrolledAt,
 };
@@ -82,7 +82,7 @@ export class BatchesService {
     const rows = await this.db
       .select(BATCH_SHAPE)
       .from(schema.batches)
-      .where(eq(schema.batches.tenantId, tenantId))
+      .where(eq(schema.batches.organisationId, tenantId))
       .orderBy(schema.batches.createdAt);
     return { batches: rows };
   }
@@ -94,7 +94,7 @@ export class BatchesService {
       .where(
         and(
           eq(schema.batches.id, batchId),
-          eq(schema.batches.tenantId, tenantId),
+          eq(schema.batches.organisationId, tenantId),
         ),
       );
     if (!row) throw new NotFoundException('Batch not found');
@@ -111,7 +111,7 @@ export class BatchesService {
     const [row] = await this.db
       .insert(schema.batches)
       .values({
-        tenantId,
+        organisationId: tenantId,
         courseId: dto.course_id,
         tutorId: dto.tutor_id ?? null,
         name: dto.name,
@@ -163,7 +163,7 @@ export class BatchesService {
       .where(
         and(
           eq(schema.batches.id, batchId),
-          eq(schema.batches.tenantId, tenantId),
+          eq(schema.batches.organisationId, tenantId),
         ),
       )
       .returning(BATCH_SHAPE);
@@ -189,7 +189,7 @@ export class BatchesService {
       .where(
         and(
           eq(schema.batches.id, batchId),
-          eq(schema.batches.tenantId, tenantId),
+          eq(schema.batches.organisationId, tenantId),
         ),
       );
 
@@ -224,7 +224,7 @@ export class BatchesService {
       .where(
         and(
           eq(schema.batchEnrollments.batchId, batchId),
-          eq(schema.batchEnrollments.tenantId, tenantId),
+          eq(schema.batchEnrollments.organisationId, tenantId),
         ),
       )
       .orderBy(schema.batchEnrollments.enrolledAt);
@@ -246,7 +246,7 @@ export class BatchesService {
       .from(schema.tenantMemberships)
       .where(
         and(
-          eq(schema.tenantMemberships.tenantId, tenantId),
+          eq(schema.tenantMemberships.organisationId, tenantId),
           eq(schema.tenantMemberships.userId, dto.student_id),
           eq(schema.tenantMemberships.role, 'student'),
         ),
@@ -272,7 +272,7 @@ export class BatchesService {
         .values({
           batchId,
           studentId: dto.student_id,
-          tenantId,
+          organisationId: tenantId,
           enrolledBy: actorUserId,
         })
         .returning(ENROLLMENT_SHAPE);
@@ -309,7 +309,7 @@ export class BatchesService {
         and(
           eq(schema.batchEnrollments.batchId, batchId),
           eq(schema.batchEnrollments.studentId, studentId),
-          eq(schema.batchEnrollments.tenantId, tenantId),
+          eq(schema.batchEnrollments.organisationId, tenantId),
         ),
       )
       .returning({ id: schema.batchEnrollments.id });
@@ -336,7 +336,7 @@ export class BatchesService {
       .where(
         and(
           eq(schema.batches.joinCode, dto.join_code),
-          eq(schema.batches.tenantId, tenantId),
+          eq(schema.batches.organisationId, tenantId),
         ),
       );
     if (!batch) throw new NotFoundException('Invalid join code');
@@ -361,7 +361,7 @@ export class BatchesService {
         .values({
           batchId: batch.id,
           studentId: actorUserId,
-          tenantId,
+          organisationId: tenantId,
           enrolledBy: actorUserId,
         })
         .returning(ENROLLMENT_SHAPE);
@@ -398,7 +398,7 @@ export class BatchesService {
       .where(
         and(
           eq(schema.batchEnrollments.studentId, studentId),
-          eq(schema.batchEnrollments.tenantId, tenantId),
+          eq(schema.batchEnrollments.organisationId, tenantId),
         ),
       )
       .orderBy(schema.batchEnrollments.enrolledAt);
@@ -412,7 +412,7 @@ export class BatchesService {
       .from(schema.batches)
       .where(
         and(
-          eq(schema.batches.tenantId, tenantId),
+          eq(schema.batches.organisationId, tenantId),
           eq(schema.batches.status, 'active'),
         ),
       )
@@ -428,7 +428,7 @@ export class BatchesService {
       .where(
         and(
           eq(schema.batches.joinCode, joinCode),
-          eq(schema.batches.tenantId, tenantId),
+          eq(schema.batches.organisationId, tenantId),
         ),
       );
     if (!row) throw new NotFoundException('Invalid join code');
