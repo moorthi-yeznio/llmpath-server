@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -7,7 +8,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { access, mkdir } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
@@ -266,7 +267,7 @@ export class MeetingsService {
     const token = new AccessToken(key, secret, {
       identity,
       name: dto.display_name,
-      ttl: '6h',
+      ttl: '2h',
       metadata,
     });
 
@@ -476,6 +477,23 @@ export class MeetingsService {
     this.assertHost(meeting, userId);
     if (meeting.status !== 'active') {
       throw new BadRequestException('Meeting has ended');
+    }
+
+    const [activeRec] = await this.db
+      .select({ id: schema.liveMeetingRecordings.id })
+      .from(schema.liveMeetingRecordings)
+      .where(
+        and(
+          eq(schema.liveMeetingRecordings.meetingId, meetingId),
+          inArray(schema.liveMeetingRecordings.status, ['starting', 'active']),
+        ),
+      )
+      .limit(1);
+
+    if (activeRec) {
+      throw new ConflictException(
+        'A recording is already in progress for this meeting',
+      );
     }
 
     const recordingId = randomUUID();
