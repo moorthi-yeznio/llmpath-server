@@ -8,7 +8,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, lt } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { access, mkdir } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
@@ -196,18 +196,32 @@ export class MeetingsService {
     };
   }
 
-  async listMyMeetings(organisationId: string, hostUserId: string) {
+  async listMyMeetings(
+    organisationId: string,
+    hostUserId: string,
+    limit = 20,
+    cursor?: string, // ISO timestamp — return meetings older than this
+  ) {
+    const conditions = [
+      eq(schema.liveMeetings.organisationId, organisationId),
+      eq(schema.liveMeetings.hostUserId, hostUserId),
+    ];
+
+    if (cursor) {
+      conditions.push(lt(schema.liveMeetings.createdAt, new Date(cursor)));
+    }
+
     const rows = await this.db
       .select()
       .from(schema.liveMeetings)
-      .where(
-        and(
-          eq(schema.liveMeetings.organisationId, organisationId),
-          eq(schema.liveMeetings.hostUserId, hostUserId),
-        ),
-      )
+      .where(and(...conditions))
       .orderBy(desc(schema.liveMeetings.createdAt))
-      .limit(100);
+      .limit(limit);
+
+    const nextCursor =
+      rows.length === limit
+        ? rows[rows.length - 1]?.createdAt?.toISOString()
+        : null;
 
     return {
       meetings: rows.map((m) => ({
@@ -217,6 +231,7 @@ export class MeetingsService {
         status: m.status,
         created_at: m.createdAt,
       })),
+      next_cursor: nextCursor,
     };
   }
 
@@ -342,6 +357,39 @@ export class MeetingsService {
     );
 
     return { admitted: true as const };
+  }
+
+  async admitAll(organisationId: string, meetingId: string, userId: string) {
+    const meeting = await this.loadMeeting(meetingId, organisationId);
+    if (!meeting) {
+      throw new NotFoundException('Meeting not found');
+    }
+    this.assertHost(meeting, userId);
+
+    const participants = await this.livekit.room.listParticipants(
+      meeting.livekitRoomName,
+    );
+    const waiting = participants.filter(
+      (p) => p.permission && !p.permission.canPublish,
+    );
+
+    await Promise.all(
+      waiting.map((p) =>
+        this.livekit.room.updateParticipant(
+          meeting.livekitRoomName,
+          p.identity,
+          {
+            permission: {
+              canSubscribe: true,
+              canPublish: true,
+              canPublishData: true,
+            },
+          },
+        ),
+      ),
+    );
+
+    return { admitted_count: waiting.length };
   }
 
   async muteParticipantTrack(
@@ -619,17 +667,8 @@ export class MeetingsService {
       .where(eq(schema.liveMeetingRecordings.meetingId, meetingId))
       .orderBy(desc(schema.liveMeetingRecordings.createdAt));
 
-    const synced = await Promise.all(
-      rows.map((r) =>
-        this.syncRecordingRow(
-          r,
-          r.relativeFilePath ?? `${meetingId}/${r.id}.mp4`,
-        ),
-      ),
-    );
-
     return {
-      recordings: synced.map((r) => ({
+      recordings: rows.map((r) => ({
         id: r.id,
         egress_id: r.egressId,
         status: r.status,
@@ -711,5 +750,84 @@ export class MeetingsService {
       .where(eq(schema.liveMeetings.id, meetingId));
 
     return { ended: true as const };
+  }
+
+  async handleEgressEvent(info: EgressInfo) {
+    const [row] = await this.db
+      .select()
+      .from(schema.liveMeetingRecordings)
+      .where(eq(schema.liveMeetingRecordings.egressId, info.egressId))
+      .limit(1);
+
+    if (!row) return;
+
+    const mapped = this.mapEgressStatus(info.status);
+    const errorMessage = info.error || null;
+
+    let nextStatus = mapped;
+    let nextRel = row.relativeFilePath;
+    let nextError: string | null = row.errorMessage;
+
+    if (mapped === 'failed' || mapped === 'aborted') {
+      nextError = errorMessage;
+    } else if (mapped === 'completed') {
+      nextRel = this.relativePathFromCompletedEgress(info) ?? nextRel;
+      if (nextRel) {
+        try {
+          await access(this.resolveRecordingFile(nextRel));
+          nextError = null;
+        } catch {
+          nextStatus = 'failed';
+          nextError =
+            'Recording file missing on API host. Ensure livekit-recordings volume is mounted identically in egress and API containers.';
+          this.logger.warn(
+            `Egress ${info.egressId} completed but MP4 missing at ${nextRel}`,
+          );
+        }
+      }
+    }
+
+    const isTerminal = ['completed', 'failed', 'aborted'].includes(nextStatus);
+    await this.db
+      .update(schema.liveMeetingRecordings)
+      .set({
+        status: nextStatus,
+        relativeFilePath: nextRel,
+        errorMessage: nextError,
+        completedAt: isTerminal
+          ? (row.completedAt ?? new Date())
+          : row.completedAt,
+      })
+      .where(eq(schema.liveMeetingRecordings.id, row.id));
+  }
+
+  async handleRoomFinished(roomName: string) {
+    const [meeting] = await this.db
+      .select()
+      .from(schema.liveMeetings)
+      .where(eq(schema.liveMeetings.livekitRoomName, roomName))
+      .limit(1);
+
+    if (!meeting || meeting.status === 'ended') return;
+
+    // End active recordings first
+    await this.db
+      .update(schema.liveMeetingRecordings)
+      .set({ status: 'aborted', completedAt: new Date() })
+      .where(
+        and(
+          eq(schema.liveMeetingRecordings.meetingId, meeting.id),
+          inArray(schema.liveMeetingRecordings.status, ['starting', 'active']),
+        ),
+      );
+
+    await this.db
+      .update(schema.liveMeetings)
+      .set({ status: 'ended', updatedAt: new Date() })
+      .where(eq(schema.liveMeetings.id, meeting.id));
+
+    this.logger.log(
+      `Meeting ${meeting.id} auto-ended via RoomFinished webhook`,
+    );
   }
 }

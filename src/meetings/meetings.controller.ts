@@ -7,6 +7,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   Req,
   StreamableFile,
   UseGuards,
@@ -30,6 +31,7 @@ import { MintMeetingTokenDto } from './dto/mint-meeting-token.dto.js';
 import { MuteParticipantTrackDto } from './dto/mute-participant-track.dto.js';
 import { RemoveParticipantDto } from './dto/remove-participant.dto.js';
 import { StopRecordingDto } from './dto/stop-recording.dto.js';
+import { ListMeetingsQueryDto } from './dto/list-meetings-query.dto.js';
 import { MeetingsService } from './meetings.service.js';
 
 @ApiTags('meetings')
@@ -54,12 +56,18 @@ export class MeetingsController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'List meetings you host' })
+  @ApiOperation({ summary: 'List meetings you host (paginated)' })
   listMine(
     @TenantId() organisationId: string,
+    @Query() query: ListMeetingsQueryDto,
     @Req() req: Request & { user: AppUser },
   ) {
-    return this.meetings.listMyMeetings(organisationId, req.user.id);
+    return this.meetings.listMyMeetings(
+      organisationId,
+      req.user.id,
+      query.limit,
+      query.cursor,
+    );
   }
 
   @Get(':meetingId')
@@ -121,6 +129,19 @@ export class MeetingsController {
       req.user.id,
       dto,
     );
+  }
+
+  @Post(':meetingId/admit-all')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Admit all waiting participants at once (host only)',
+  })
+  admitAll(
+    @TenantId() organisationId: string,
+    @Param('meetingId', ParseUUIDPipe) meetingId: string,
+    @Req() req: Request & { user: AppUser },
+  ) {
+    return this.meetings.admitAll(organisationId, meetingId, req.user.id);
   }
 
   @Post(':meetingId/participants/mute-track')

@@ -15,3 +15,6 @@ keys:
   devkey: change-me-to-a-long-random-secret-minimum-32-chars
 logging:
   level: info
+# Webhook configuration (uncomment and set your real API URL):
+# webhook_urls:
+#   - https://<your-api-host>/webhooks/livekit
