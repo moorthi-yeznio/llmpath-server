@@ -1,0 +1,10 @@
+# Egress worker — api_key / api_secret must match livekit.example.yaml keys.*
+log_level: info
+# Must match a key defined in livekit.yaml keys.
+api_key: devkey
+# MUST be ≥32 chars — same as the key value in livekit.yaml
+api_secret: change-me-to-a-long-random-secret-minimum-32-chars
+ws_url: ws://livekit:7880
+insecure: true
+redis:
+  address: redis:6379

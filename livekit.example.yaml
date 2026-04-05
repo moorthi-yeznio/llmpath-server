@@ -1,0 +1,17 @@
+# LiveKit server — replace API key/secret for anything beyond local dev.
+port: 7880
+bind_addresses:
+  - '0.0.0.0'
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 60000
+  use_external_ip: true # Set to false only for localhost-only testing
+redis:
+  address: redis:6379
+keys:
+  # REPLACE with a strong random key (openssl rand -hex 32) before any non-local use.
+  # Key name can be anything; the value MUST be ≥32 chars for JWT security.
+  devkey: change-me-to-a-long-random-secret-minimum-32-chars
+logging:
+  level: info
