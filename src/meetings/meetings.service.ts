@@ -373,7 +373,7 @@ export class MeetingsService {
       (p) => p.permission && !p.permission.canPublish,
     );
 
-    await Promise.all(
+    const results = await Promise.allSettled(
       waiting.map((p) =>
         this.livekit.room.updateParticipant(
           meeting.livekitRoomName,
@@ -389,7 +389,17 @@ export class MeetingsService {
       ),
     );
 
-    return { admitted_count: waiting.length };
+    const failedCount = results.filter((r) => r.status === 'rejected').length;
+    if (failedCount > 0) {
+      this.logger.warn(
+        `admitAll: ${failedCount}/${waiting.length} participant admits failed (participants may have disconnected)`,
+      );
+    }
+
+    return {
+      admitted_count: waiting.length - failedCount,
+      failed_count: failedCount,
+    };
   }
 
   async muteParticipantTrack(
@@ -747,7 +757,12 @@ export class MeetingsService {
     await this.db
       .update(schema.liveMeetings)
       .set({ status: 'ended', updatedAt: new Date() })
-      .where(eq(schema.liveMeetings.id, meetingId));
+      .where(
+        and(
+          eq(schema.liveMeetings.id, meetingId),
+          eq(schema.liveMeetings.status, 'active'),
+        ),
+      );
 
     return { ended: true as const };
   }
@@ -824,7 +839,12 @@ export class MeetingsService {
     await this.db
       .update(schema.liveMeetings)
       .set({ status: 'ended', updatedAt: new Date() })
-      .where(eq(schema.liveMeetings.id, meeting.id));
+      .where(
+        and(
+          eq(schema.liveMeetings.id, meeting.id),
+          eq(schema.liveMeetings.status, 'active'),
+        ),
+      );
 
     this.logger.log(
       `Meeting ${meeting.id} auto-ended via RoomFinished webhook`,

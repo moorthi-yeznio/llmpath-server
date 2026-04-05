@@ -37,11 +37,14 @@ export class LiveKitWebhooksController {
   @Public()
   async handle(
     @Req() req: RawBodyRequest<Request>,
-    @Headers('authorization') authorization: string,
+    @Headers('authorization') authorization: string | undefined,
   ) {
     const body = req.rawBody;
     if (!body) {
       throw new BadRequestException('Missing raw body');
+    }
+    if (!authorization) {
+      throw new BadRequestException('Missing authorization header');
     }
 
     let event: Awaited<ReturnType<WebhookReceiver['receive']>>;
