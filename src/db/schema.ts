@@ -483,3 +483,70 @@ export const auditLogs = pgTable(
     index('audit_logs_org_idx').on(t.organisationId),
   ],
 );
+
+// ─── Live meetings (LiveKit) ───────────────────────────────────────────────────
+
+export const liveMeetingStatusEnum = pgEnum('live_meeting_status', [
+  'active',
+  'ended',
+]);
+
+export const liveMeetingRecordingStatusEnum = pgEnum(
+  'live_meeting_recording_status',
+  ['starting', 'active', 'completed', 'failed', 'aborted'],
+);
+
+export const liveMeetings = pgTable(
+  'live_meetings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    hostUserId: uuid('host_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    organisationId: uuid('organisation_id')
+      .notNull()
+      .references(() => organisations.id, { onDelete: 'cascade' }),
+    /** LiveKit room name (high-entropy, typically a UUID string) */
+    livekitRoomName: varchar('livekit_room_name', { length: 128 })
+      .notNull()
+      .unique(),
+    title: varchar('title', { length: 200 }),
+    status: liveMeetingStatusEnum('status').notNull().default('active'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index('live_meetings_host_idx').on(t.hostUserId),
+    index('live_meetings_status_idx').on(t.status),
+    index('live_meetings_org_idx').on(t.organisationId),
+  ],
+);
+
+export const liveMeetingRecordings = pgTable(
+  'live_meeting_recordings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    meetingId: uuid('meeting_id')
+      .notNull()
+      .references(() => liveMeetings.id, { onDelete: 'cascade' }),
+    egressId: varchar('egress_id', { length: 128 }).notNull().unique(),
+    /** Relative path under LIVEKIT_RECORDINGS_DIR once completed */
+    relativeFilePath: varchar('relative_file_path', { length: 512 }),
+    status: liveMeetingRecordingStatusEnum('status')
+      .notNull()
+      .default('starting'),
+    errorMessage: text('error_message'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+  },
+  (t) => [
+    index('live_meeting_recordings_meeting_idx').on(t.meetingId),
+    index('live_meeting_recordings_status_idx').on(t.status),
+  ],
+);
