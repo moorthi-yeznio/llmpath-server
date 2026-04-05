@@ -5,9 +5,9 @@ import {
   HttpCode,
   Logger,
   Post,
-  RawBodyRequest,
   Req,
 } from '@nestjs/common';
+import type { RawBodyRequest } from '@nestjs/common';
 import type { Request } from 'express';
 import { WebhookReceiver } from 'livekit-server-sdk';
 import { ConfigService } from '@nestjs/config';
